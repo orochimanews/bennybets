@@ -1,13 +1,17 @@
 {
   "font_size": 11,
   "theme": "dark",
-  "auto_refresh_interval": 60,
+  "auto_refresh_interval": 0,
   "surebet_min_profit": 0.0,
   "value_bet_threshold": 5.0,
   "enabled_providers": [
     "Winamax",
     "Betclic",
-    "Unibet"
+    "Unibet",
+    "Genybet",
+    "PokerStars",
+    "PMU",
+    "Bwin"
   ],
   "custom_sources": [],
   "default_total_stake": 100.0,

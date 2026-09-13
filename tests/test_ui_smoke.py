@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from PyQt6.QtWidgets import QApplication
 from bennybets.core.settings import AppSettings
 from bennybets.ui.main_window import MainWindow
@@ -17,3 +17,16 @@ def test_main_window_init(qapp):
     assert window.table_widget is not None
     assert window.combo_sport.count() >= 3
     window.close()
+
+def test_settings_dialog_providers(qapp):
+    from bennybets.ui.settings_dialog import SettingsDialog
+    settings = AppSettings()
+    dlg = SettingsDialog(settings=settings)
+    assert dlg.chk_winamax.isChecked()
+    assert dlg.chk_betclic.isChecked()
+    assert dlg.chk_unibet.isChecked()
+    assert dlg.chk_genybet.isChecked()
+    assert dlg.chk_pokerstars.isChecked()
+    assert not dlg.chk_pmu.isChecked()
+    assert not dlg.chk_bwin.isChecked()
+    dlg.close()

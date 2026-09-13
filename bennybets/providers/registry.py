@@ -8,6 +8,10 @@ from bennybets.providers.base import BaseProvider
 from bennybets.providers.winamax import WinamaxProvider
 from bennybets.providers.betclic import BetclicProvider
 from bennybets.providers.unibet import UnibetProvider
+from bennybets.providers.genybet import GenybetProvider
+from bennybets.providers.pokerstars import PokerStarsProvider
+from bennybets.providers.pmu import PmuProvider
+from bennybets.providers.bwin import BwinProvider
 from bennybets.providers.custom_url import CustomJsonProvider
 
 logger = logging.getLogger(__name__)
@@ -22,12 +26,21 @@ class ProviderRegistry:
         self._load_custom_providers()
 
     def _init_default_providers(self):
-        w = WinamaxProvider()
-        b = BetclicProvider()
-        u = UnibetProvider()
-        self.providers[w.name] = w
-        self.providers[b.name] = b
-        self.providers[u.name] = u
+        default_classes = [
+            WinamaxProvider,
+            BetclicProvider,
+            UnibetProvider,
+            GenybetProvider,
+            PokerStarsProvider,
+            PmuProvider,
+            BwinProvider,
+        ]
+        for cls in default_classes:
+            try:
+                inst = cls()
+                self.providers[inst.name] = inst
+            except Exception as e:
+                logger.error(f"Erreur initialisation provider {cls.__name__}: {e}")
 
     def _load_custom_providers(self):
         for src in self.settings.custom_sources:

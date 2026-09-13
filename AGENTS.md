@@ -49,7 +49,17 @@ Tout agent intervenant sur ce projet doit respecter les directives décrites ici
 3. **Unibet** (`bennybets/providers/unibet.py`) :
    - Interrogation directe de l'API Kambi d'Unibet (`eu-offering-api.kambicdn.com/offering/v2018/ub/listView/football.json`).
    - Fournit > 700 matchs réels avec cotes 1N2 décimales.
-4. **CustomJsonProvider** (`bennybets/providers/custom_url.py`) :
+4. **Genybet** (`bennybets/providers/genybet.py`) :
+   - Parsing du flux SSR Nuxt (`sport.genybet.fr/football`) du réseau Sportnco / France-Pari.
+   - Fournit 70+ matchs réels avec cotes 1N2 décimales et liens directs (`/evenement/...`).
+5. **PokerStars Sports** (`bennybets/providers/pokerstars.py`) :
+   - Extraction SSR Flutter Entertainment (`pokerstarssports.fr/sports/football`).
+   - Fournit des matchs avec cotes 1N2 et liens profonds.
+6. **PMU Sport** (`bennybets/providers/pmu.py`) :
+   - Support SSR Next.js / marchés PMU et cache miroir.
+7. **Bwin** (`bennybets/providers/bwin.py`) :
+   - Intégration de l'API CDS Entain (`sports.bwin.fr/cds-api/`) et cache miroir.
+8. **CustomJsonProvider** (`bennybets/providers/custom_url.py`) :
    - Permet d'injecter n'importe quel flux JSON ou webhook d'adresses personnalisé via les paramètres.
 
 ---
@@ -64,3 +74,4 @@ Tout agent intervenant sur ce projet doit respecter les directives décrites ici
    - Popups fermables en cliquant en dehors pour les détails et réglages.
 4. **Liens cliquables** : Clic sur une cote ou sur l'icône bookmaker ouvre l'URL dans le navigateur par défaut de l'utilisateur (`QDesktopServices.openUrl`).
 5. **Gestion Git** : Le dossier `dist/` **ne doit pas** être ignoré par Git afin de pouvoir partager le `.exe` directement.
+6. **Pas de compilation systématique** : Ne **pas** recompiler avec PyInstaller (`build.bat`) à chaque développement. Privilégier les tests (`pytest`) et l'exécution directe (`dev.bat`). Ne recompiler l'exécutable `dist/BennyBets.exe` que si l'utilisateur le demande explicitement.

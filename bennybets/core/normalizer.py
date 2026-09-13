@@ -28,6 +28,13 @@ KNOWN_ALIASES = {
     'sporting cp': 'sporting lisbonne',
     'sporting': 'sporting lisbonne',
     'benfica': 'benfica lisbonne',
+    'paris st g': 'paris saint germain',
+    'paris saint g': 'paris saint germain',
+    'paris st germain': 'paris saint germain',
+    'estac troyes': 'troyes',
+    'estac': 'troyes',
+    'fc utrecht': 'utrecht',
+    'tokyo v': 'tokyo verdy',
 }
 
 STOP_WORDS = {

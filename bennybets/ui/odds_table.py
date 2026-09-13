@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from PyQt6.QtWidgets import (
-    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QMenu
 )
 from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QColor, QFont, QBrush
@@ -8,40 +8,49 @@ from PyQt6.QtGui import QDesktopServices, QColor, QFont, QBrush
 from bennybets.core.models import AggregatedEvent, OpportunityType
 
 MAX_DISPLAY_ROWS = 250
+DEFAULT_BOOKMAKERS = ["Winamax", "Betclic", "Unibet", "Genybet", "PokerStars", "PMU", "Bwin"]
 
 class OddsTableWidget(QTableWidget):
     """
     Tableau haute performance utilisant des QTableWidgetItem natifs.
-    Rendu instantané (0.01s), zéro fuite mémoire, 100% stable sur Windows.
+    Support dynamique de tous les bookmakers configurés (Winamax, Betclic, Unibet, Genybet, PokerStars, etc.).
+    Rendu instantané, zéro fuite mémoire, 100% réactif.
     """
 
     match_selected = pyqtSignal(AggregatedEvent)
 
     COL_STATUS = 0
     COL_MATCH = 1
-    COL_WINAMAX = 2
-    COL_BETCLIC = 3
-    COL_UNIBET = 4
-    COL_BEST = 5
-    COL_OPPORTUNITY = 6
-    COL_ACTIONS = 7
 
-    def __init__(self, parent=None):
+    def __init__(self, bookmakers: Optional[List[str]] = None, parent=None):
         super().__init__(parent)
         self.displayed_events: List[AggregatedEvent] = []
+        self.bookmakers: List[str] = list(bookmakers) if bookmakers else list(DEFAULT_BOOKMAKERS)
         self._setup_table()
 
+    @property
+    def col_best(self) -> int:
+        return 2 + len(self.bookmakers)
+
+    @property
+    def col_opportunity(self) -> int:
+        return 3 + len(self.bookmakers)
+
+    @property
+    def col_actions(self) -> int:
+        return 4 + len(self.bookmakers)
+
+    def set_bookmakers(self, bookmakers: List[str]):
+        if self.bookmakers != bookmakers:
+            self.bookmakers = list(bookmakers)
+            self._setup_table()
+
     def _setup_table(self):
-        headers = [
-            "Statut",
-            "Événement (Compétition)",
-            "Winamax (1 | N | 2)",
-            "Betclic (1 | N | 2)",
-            "Unibet (1 | N | 2)",
-            "Meilleures Cotes",
-            "Opportunité",
-            "Action"
-        ]
+        headers = ["Statut", "Événement (Compétition)"]
+        for bk in self.bookmakers:
+            headers.append(f"{bk} (1 | N | 2)")
+        headers.extend(["Meilleures Cotes", "Opportunité", "Action"])
+
         self.setColumnCount(len(headers))
         self.setHorizontalHeaderLabels(headers)
         
@@ -55,15 +64,29 @@ class OddsTableWidget(QTableWidget):
         header = self.horizontalHeader()
         header.setSectionResizeMode(self.COL_STATUS, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(self.COL_MATCH, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(self.COL_WINAMAX, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(self.COL_BETCLIC, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(self.COL_UNIBET, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(self.COL_BEST, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(self.COL_OPPORTUNITY, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(self.COL_ACTIONS, QHeaderView.ResizeMode.ResizeToContents)
+        for i in range(len(self.bookmakers)):
+            header.setSectionResizeMode(2 + i, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self.col_best, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self.col_opportunity, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self.col_actions, QHeaderView.ResizeMode.ResizeToContents)
+
+        try:
+            self.cellClicked.disconnect()
+        except TypeError:
+            pass
+        try:
+            self.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        try:
+            self.customContextMenuRequested.disconnect()
+        except TypeError:
+            pass
 
         self.cellClicked.connect(self._on_cell_clicked)
         self.cellDoubleClicked.connect(self._on_cell_double_clicked)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
     def load_events(
         self,
@@ -71,8 +94,12 @@ class OddsTableWidget(QTableWidget):
         filter_text: str = "",
         only_live: bool = False,
         only_surebet: bool = False,
-        only_value: bool = False
+        only_value: bool = False,
+        bookmakers: Optional[List[str]] = None
     ):
+        if bookmakers is not None and bookmakers != self.bookmakers:
+            self.set_bookmakers(bookmakers)
+
         filter_lower = filter_text.strip().lower()
 
         filtered: List[AggregatedEvent] = []
@@ -121,29 +148,24 @@ class OddsTableWidget(QTableWidget):
             item_match.setFlags(item_match.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.setItem(row, self.COL_MATCH, item_match)
 
-            # 2. Winamax
-            self._set_bookmaker_item(row, self.COL_WINAMAX, ev, "Winamax")
+            # 2..2+N-1 Colonnes Bookmakers
+            for i, bk in enumerate(self.bookmakers):
+                self._set_bookmaker_item(row, 2 + i, ev, bk)
 
-            # 3. Betclic
-            self._set_bookmaker_item(row, self.COL_BETCLIC, ev, "Betclic")
+            # Meilleures Cotes
+            self._set_best_odds_item(row, self.col_best, ev)
 
-            # 4. Unibet
-            self._set_bookmaker_item(row, self.COL_UNIBET, ev, "Unibet")
+            # Opportunités
+            self._set_opportunity_item(row, self.col_opportunity, ev)
 
-            # 5. Meilleures Cotes
-            self._set_best_odds_item(row, ev)
-
-            # 6. Opportunités
-            self._set_opportunity_item(row, ev)
-
-            # 7. Action
+            # Action
             item_action = QTableWidgetItem("📊 Détails ↗")
             item_action.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             item_action.setForeground(QColor("#3b82f6"))
             item_action.setFont(font_bold)
             item_action.setToolTip("Cliquez pour ouvrir le comparatif complet et le calculateur de mise")
             item_action.setFlags(item_action.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.setItem(row, self.COL_ACTIONS, item_action)
+            self.setItem(row, self.col_actions, item_action)
 
         self.setUpdatesEnabled(True)
 
@@ -182,13 +204,13 @@ class OddsTableWidget(QTableWidget):
         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         self.setItem(row, col, item)
 
-    def _set_best_odds_item(self, row: int, ev: AggregatedEvent):
+    def _set_best_odds_item(self, row: int, col: int, ev: AggregatedEvent):
         best_mkt = ev.best_odds.get("1N2") or ev.best_odds.get("12")
         if not best_mkt:
             item = QTableWidgetItem("—")
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.setItem(row, self.COL_BEST, item)
+            self.setItem(row, col, item)
             return
 
         o1 = best_mkt.get("1")
@@ -209,9 +231,9 @@ class OddsTableWidget(QTableWidget):
         item.setFont(font_bold)
         item.setToolTip(f"Meilleures cotes combinées : {text}")
         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        self.setItem(row, self.COL_BEST, item)
+        self.setItem(row, col, item)
 
-    def _set_opportunity_item(self, row: int, ev: AggregatedEvent):
+    def _set_opportunity_item(self, row: int, col: int, ev: AggregatedEvent):
         if ev.has_surebet:
             surebets = [op for op in ev.opportunities if op.op_type == OpportunityType.SUREBET]
             max_profit = max(op.profit_margin for op in surebets) if surebets else 0.0
@@ -238,7 +260,7 @@ class OddsTableWidget(QTableWidget):
 
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        self.setItem(row, self.COL_OPPORTUNITY, item)
+        self.setItem(row, col, item)
 
     def _on_cell_clicked(self, row: int, col: int):
         if not (0 <= row < len(self.displayed_events)):
@@ -247,28 +269,67 @@ class OddsTableWidget(QTableWidget):
         ev = self.displayed_events[row]
 
         # Clic sur une colonne de bookmaker -> ouvrir directement le lien du match !
-        bk_map = {
-            self.COL_WINAMAX: "Winamax",
-            self.COL_BETCLIC: "Betclic",
-            self.COL_UNIBET: "Unibet"
-        }
-
-        if col in bk_map:
-            bk_name = bk_map[col]
+        if 2 <= col < 2 + len(self.bookmakers):
+            bk_name = self.bookmakers[col - 2]
             bk_ev = ev.bookmaker_events.get(bk_name)
             if bk_ev and bk_ev.url:
                 QDesktopServices.openUrl(QUrl(bk_ev.url))
             elif bk_ev:
-                # URL par défaut selon le bookmaker
                 default_urls = {
                     "Winamax": "https://www.winamax.fr/paris-sportifs",
                     "Betclic": "https://www.betclic.fr",
-                    "Unibet": "https://www.unibet.fr"
+                    "Unibet": "https://www.unibet.fr",
+                    "Genybet": "https://sport.genybet.fr/football",
+                    "PokerStars": "https://www.pokerstarssports.fr/sports/football",
+                    "PMU": "https://paris-sportifs.pmu.fr",
+                    "Bwin": "https://sports.bwin.fr",
                 }
                 QDesktopServices.openUrl(QUrl(default_urls.get(bk_name, "")))
-        elif col == self.COL_ACTIONS or col == self.COL_MATCH:
+        elif col == self.col_best:
+            # Clic sur "Meilleures Cotes" -> ouvrir directement le match sur le bookmaker de la meilleure cote
+            best_mkt = ev.best_odds.get("1N2") or ev.best_odds.get("12")
+            if best_mkt:
+                best_odd = max(best_mkt.values(), key=lambda o: o.value, default=None)
+                if best_odd and best_odd.url:
+                    QDesktopServices.openUrl(QUrl(best_odd.url))
+                    return
+                elif best_odd:
+                    bk_ev = ev.bookmaker_events.get(best_odd.bookmaker)
+                    if bk_ev and bk_ev.url:
+                        QDesktopServices.openUrl(QUrl(bk_ev.url))
+                        return
+            self.match_selected.emit(ev)
+        elif col in (self.col_actions, self.COL_MATCH):
             self.match_selected.emit(ev)
 
     def _on_cell_double_clicked(self, row: int, col: int):
         if 0 <= row < len(self.displayed_events):
             self.match_selected.emit(self.displayed_events[row])
+
+    def _show_context_menu(self, pos):
+        """Menu contextuel au clic droit pour accéder directement aux pages de chaque bookmaker"""
+        item = self.itemAt(pos)
+        if not item:
+            return
+        row = item.row()
+        if not (0 <= row < len(self.displayed_events)):
+            return
+        ev = self.displayed_events[row]
+
+        menu = QMenu(self)
+        
+        # Options directes pour ouvrir chaque bookmaker présent pour ce match
+        has_bk_link = False
+        for bk_name, bk_ev in ev.bookmaker_events.items():
+            if bk_ev and bk_ev.url:
+                action = menu.addAction(f"Ouvrir sur {bk_name} (Page du match) ↗")
+                action.triggered.connect(lambda checked, u=bk_ev.url: QDesktopServices.openUrl(QUrl(u)))
+                has_bk_link = True
+
+        if has_bk_link:
+            menu.addSeparator()
+
+        action_details = menu.addAction("📊 Voir comparatif complet & calculateur de mise")
+        action_details.triggered.connect(lambda: self.match_selected.emit(ev))
+
+        menu.exec(self.viewport().mapToGlobal(pos))

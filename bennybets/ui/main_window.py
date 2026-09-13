@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(topbar)
 
         # 2. Tableau principal natif ultra-rapide
-        self.table_widget = OddsTableWidget()
+        self.table_widget = OddsTableWidget(bookmakers=self.settings.enabled_providers)
         self.table_widget.match_selected.connect(self._show_match_details)
         main_layout.addWidget(self.table_widget, stretch=1)
 
@@ -208,7 +208,8 @@ class MainWindow(QMainWindow):
             filter_text=self.txt_search.text(),
             only_live=self.filter_live,
             only_surebet=self.filter_surebet,
-            only_value=self.filter_value
+            only_value=self.filter_value,
+            bookmakers=self.settings.enabled_providers
         )
 
     def _on_sport_changed(self, index: int):
@@ -269,6 +270,7 @@ class MainWindow(QMainWindow):
 
     def _on_settings_applied(self, updated_settings: AppSettings):
         self.settings = updated_settings
+        self.table_widget.set_bookmakers(self.settings.enabled_providers)
         self._apply_theme()
         self._update_timer_interval()
         self.refresh_odds()

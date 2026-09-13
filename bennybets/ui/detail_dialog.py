@@ -1,4 +1,4 @@
-﻿from PyQt6.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QDoubleSpinBox, QGroupBox,
     QHeaderView, QWidget
@@ -48,6 +48,30 @@ class MatchDetailDialog(QDialog):
         info_lbl.setTextFormat(Qt.TextFormat.RichText)
         info_lbl.setStyleSheet("color: #8a94a6; font-size: 11px;")
         header_layout.addWidget(info_lbl)
+
+        # Liens directs rapides vers les pages exactes du match
+        links_bar = QHBoxLayout()
+        links_bar.setSpacing(8)
+        lbl_quick = QLabel("Accès direct au match :")
+        lbl_quick.setStyleSheet("color: #8a94a6; font-size: 11px; font-weight: bold;")
+        links_bar.addWidget(lbl_quick)
+
+        has_any_link = False
+        for bk_name, bk_event in self.event.bookmaker_events.items():
+            if bk_event.url:
+                btn_quick = QPushButton(f"{bk_name} ↗")
+                btn_quick.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                btn_quick.setStyleSheet("padding: 3px 9px; font-size: 11px; font-weight: bold; background: #1e293b; color: #38bdf8; border: 1px solid #334155; border-radius: 4px;")
+                btn_quick.setToolTip(f"Ouvrir la page exacte du match sur {bk_name} :\n{bk_event.url}")
+                url_to_open = bk_event.url
+                btn_quick.clicked.connect(lambda checked, u=url_to_open: QDesktopServices.openUrl(QUrl(u)))
+                links_bar.addWidget(btn_quick)
+                has_any_link = True
+
+        links_bar.addStretch()
+        if has_any_link:
+            header_layout.addLayout(links_bar)
+
         layout.addWidget(header_widget)
 
         # Section 1 : Comparatif des bookmakers
@@ -74,11 +98,12 @@ class MatchDetailDialog(QDialog):
             table.setItem(row, 2, QTableWidgetItem(f"{on.value:.2f}" if on else "—"))
             table.setItem(row, 3, QTableWidgetItem(f"{o2.value:.2f}" if o2 else "—"))
 
-            btn_open = QPushButton(f"Ouvrir {bk_name} ↗")
+            btn_open = QPushButton(f"Page match {bk_name} ↗")
             btn_open.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            btn_open.setStyleSheet("padding: 2px 8px; font-size: 11px; background: #2563eb; color: white; border: none; border-radius: 3px;")
+            btn_open.setStyleSheet("padding: 3px 8px; font-size: 11px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 3px;")
             if bk_event.url:
                 url_to_open = bk_event.url
+                btn_open.setToolTip(f"Ouvrir la page exacte du match sur {bk_name} :\n{url_to_open}")
                 btn_open.clicked.connect(lambda checked, u=url_to_open: QDesktopServices.openUrl(QUrl(u)))
             table.setCellWidget(row, 4, btn_open)
 
@@ -173,10 +198,11 @@ class MatchDetailDialog(QDialog):
             self.table_stakes.setItem(row, 3, QTableWidgetItem(f"{stake:.2f} €"))
             self.table_stakes.setItem(row, 4, QTableWidgetItem(f"{payout:.2f} €"))
 
-            btn_bet = QPushButton(f"Parier ({odd.bookmaker}) ↗")
+            btn_bet = QPushButton(f"Parier chez {odd.bookmaker} ↗")
             btn_bet.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            btn_bet.setStyleSheet("padding: 2px 8px; font-size: 11px; background: #10b981; color: white; border: none; border-radius: 3px;")
+            btn_bet.setStyleSheet("padding: 3px 8px; font-size: 11px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 3px;")
             if odd.url:
                 url_to_open = odd.url
+                btn_bet.setToolTip(f"Ouvrir la page du match chez {odd.bookmaker} :\n{url_to_open}")
                 btn_bet.clicked.connect(lambda checked, u=url_to_open: QDesktopServices.openUrl(QUrl(u)))
             self.table_stakes.setCellWidget(row, 5, btn_bet)

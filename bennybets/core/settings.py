@@ -17,10 +17,10 @@ class CustomSource:
 class AppSettings:
     font_size: int = 11                          # Taille de police par défaut
     theme: str = 'dark'                          # 'dark', 'midnight', 'light'
-    auto_refresh_interval: int = 30              # Secondes (10, 30, 60, 0 = manuel)
+    auto_refresh_interval: int = 0               # 0 = manuel (chargement au démarrage uniquement)
     surebet_min_profit: float = 0.0              # Min ROI pour alerte Surebet (%)
     value_bet_threshold: float = 8.0             # Seuil décalage (%) pour anomalie
-    enabled_providers: List[str] = field(default_factory=lambda: ['Winamax', 'Betclic', 'Unibet'])
+    enabled_providers: List[str] = field(default_factory=lambda: ['Winamax', 'Betclic', 'Unibet', 'Genybet', 'PokerStars'])
     custom_sources: List[Dict[str, Any]] = field(default_factory=list)
     default_total_stake: float = 100.0           # Mise par défaut pour calculateur
     show_only_surebets: bool = False

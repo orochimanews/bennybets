@@ -1,4 +1,4 @@
-﻿def get_stylesheet(theme: str = "dark", font_size: int = 11) -> str:
+def get_stylesheet(theme: str = "dark", font_size: int = 11) -> str:
     """Génère la feuille de style QSS compacte et moderne selon le thème et la taille de police"""
     fs = font_size
     fs_small = max(8, fs - 2)
@@ -122,6 +122,59 @@
     QComboBox::drop-down {{
         border: none;
         padding-right: 4px;
+    }}
+
+    /* Onglets QTabWidget */
+    QTabWidget::pane {{
+        background-color: {bg_card};
+        border: 1px solid {border_color};
+        border-radius: 6px;
+        top: -1px;
+    }}
+    QTabBar::tab {{
+        background-color: {bg_alt};
+        color: {text_muted};
+        border: 1px solid {border_color};
+        border-bottom: none;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        padding: 6px 14px;
+        margin-right: 4px;
+        font-weight: 600;
+    }}
+    QTabBar::tab:selected {{
+        background-color: {bg_card};
+        color: {text_primary};
+        border-bottom: 2px solid {accent_green};
+    }}
+    QTabBar::tab:hover:!selected {{
+        background-color: {border_color};
+        color: {text_primary};
+    }}
+
+    /* Liste */
+    QListWidget {{
+        background-color: {bg_alt};
+        border: 1px solid {border_color};
+        border-radius: 4px;
+        color: {text_primary};
+        padding: 4px;
+    }}
+    QListWidget::item {{
+        padding: 4px 6px;
+        border-radius: 3px;
+        color: {text_primary};
+    }}
+    QListWidget::item:selected {{
+        background-color: {accent_blue};
+        color: #ffffff;
+    }}
+
+    /* Cases à cocher */
+    QCheckBox {{
+        color: {text_primary};
+        spacing: 8px;
+        background: transparent;
     }}
 
     /* Tableau des cotes */

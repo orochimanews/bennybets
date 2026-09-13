@@ -1,4 +1,4 @@
-﻿import json
+import json
 import re
 import logging
 from typing import List, Optional
@@ -11,13 +11,13 @@ from bennybets.providers.base import BaseProvider
 logger = logging.getLogger(__name__)
 
 SPORT_SLUG_MAP = {
-    Sport.FOOTBALL: "football-s1",
-    Sport.TENNIS: "tennis-s2",
-    Sport.BASKETBALL: "basket-ball-s4",
+    Sport.FOOTBALL: "football-sfootball",
+    Sport.TENNIS: "tennis-stennis",
+    Sport.BASKETBALL: "basket-ball-sbasketball",
 }
 
 class BetclicProvider(BaseProvider):
-    """Fournisseur de cotes en temps réel pour Betclic France"""
+    """Fournisseur de cotes en temps réel pour Betclic France avec extraction des URLs exactes de match"""
 
     def __init__(self, timeout_seconds: float = 10.0):
         self.timeout = timeout_seconds
@@ -32,7 +32,7 @@ class BetclicProvider(BaseProvider):
         return "Betclic"
 
     def fetch_events(self, sport: Sport = Sport.FOOTBALL) -> List[Event]:
-        slug = SPORT_SLUG_MAP.get(sport, "football-s1")
+        slug = SPORT_SLUG_MAP.get(sport, "football-sfootball")
         url = f"https://www.betclic.fr/{slug}"
         events: List[Event] = []
 
@@ -43,6 +43,11 @@ class BetclicProvider(BaseProvider):
                     logger.warning(f"[Betclic] Réponse HTTP {resp.status_code}")
                     return events
                 html = resp.text
+
+            # Extraction de la cartographie des URLs exactes des matches (...-m<matchId>)
+            html_match_urls = {}
+            for full_href, m_id in re.findall(r'href=[\'"]([^\'"]+-m(\d+)[^\'"]*)[\'"]', html):
+                html_match_urls[m_id] = full_href if full_href.startswith("http") else f"https://www.betclic.fr{full_href}"
 
             m = re.search(r'<script\s+id="ng-state"[^>]*>(.*?)</script>', html, re.DOTALL)
             if not m:
@@ -113,10 +118,14 @@ class BetclicProvider(BaseProvider):
                         continue
 
                     market_outcomes = {}
-                    # URL match
-                    rel_url = m_data.get("relative_desktop_url") or m_data.get("desktopUrl")
-                    if rel_url:
+                    # URL exacte du match
+                    if match_id in html_match_urls:
+                        match_url = html_match_urls[match_id]
+                    elif m_data.get("relative_desktop_url") or m_data.get("desktopUrl"):
+                        rel_url = m_data.get("relative_desktop_url") or m_data.get("desktopUrl")
                         match_url = f"https://www.betclic.fr{rel_url}" if rel_url.startswith("/") else f"https://www.betclic.fr/{rel_url}"
+                    elif match_id:
+                        match_url = f"https://www.betclic.fr/match-m{match_id}"
                     else:
                         match_url = f"https://www.betclic.fr/{slug}"
 
