@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from typing import List, Optional
 
 from PyQt6.QtWidgets import (
@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QApplication
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QCursor, QIcon
+from PyQt6.QtGui import QCursor, QIcon, QCloseEvent
 
 from bennybets.core.models import AggregatedEvent, Sport, OpportunityType
 from bennybets.core.settings import AppSettings
@@ -18,7 +18,7 @@ from bennybets.ui.detail_dialog import MatchDetailDialog
 from bennybets.ui.settings_dialog import SettingsDialog
 
 class MainWindow(QMainWindow):
-    """Fenêtre principale de l'application BennyBets"""
+    """Fenêtre principale stabilisée et haute performance de BennyBets"""
 
     def __init__(self, settings: Optional[AppSettings] = None, auto_load: bool = True):
         super().__init__()
@@ -32,15 +32,20 @@ class MainWindow(QMainWindow):
         self.filter_surebet = False
         self.filter_value = False
 
+        # Timer de debounce pour la recherche
+        self.search_timer = QTimer(self)
+        self.search_timer.setSingleShot(True)
+        self.search_timer.setInterval(250)
+        self.search_timer.timeout.connect(self._refresh_table_view)
+
         self.setWindowTitle("BennyBets — Comparateur de Cotes & Détecteur d'Arbitrage")
-        self.setMinimumSize(980, 600)
-        self.resize(1180, 720)
+        self.setMinimumSize(1020, 620)
+        self.resize(1240, 740)
 
         self._setup_ui()
         self._apply_theme()
         self._setup_auto_refresh()
 
-        # Premier rafraîchissement
         if auto_load:
             self.refresh_odds()
 
@@ -51,7 +56,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 1. Menu sticky en haut (TopBar)
+        # 1. Barre supérieure sticky (TopBar)
         topbar = QWidget()
         topbar.setObjectName("TopBar")
         top_layout = QHBoxLayout(topbar)
@@ -71,7 +76,6 @@ class MainWindow(QMainWindow):
         self.combo_sport.currentIndexChanged.connect(self._on_sport_changed)
         top_layout.addWidget(self.combo_sport)
 
-        # Séparateur visuel léger
         lbl_sep1 = QLabel("|")
         lbl_sep1.setStyleSheet("color: #374151; padding: 0 4px;")
         top_layout.addWidget(lbl_sep1)
@@ -91,7 +95,7 @@ class MainWindow(QMainWindow):
 
         self.btn_filter_surebet = QPushButton("🔥 Surebets")
         self.btn_filter_surebet.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_filter_surebet.setToolTip("Afficher uniquement les opportunités d'arbitrage garanties")
+        self.btn_filter_surebet.setToolTip("Afficher uniquement les arbitrages avec profit garanti")
         self.btn_filter_surebet.clicked.connect(self._toggle_filter_surebet)
         top_layout.addWidget(self.btn_filter_surebet)
 
@@ -101,16 +105,15 @@ class MainWindow(QMainWindow):
         self.btn_filter_value.clicked.connect(self._toggle_filter_value)
         top_layout.addWidget(self.btn_filter_value)
 
-        # Séparateur visuel
         lbl_sep2 = QLabel("|")
         lbl_sep2.setStyleSheet("color: #374151; padding: 0 4px;")
         top_layout.addWidget(lbl_sep2)
 
-        # Barre de recherche rapide
+        # Barre de recherche rapide avec debounce
         self.txt_search = QLineEdit()
         self.txt_search.setPlaceholderText("🔍 Filtrer un match, club, ligue...")
         self.txt_search.setClearButtonEnabled(True)
-        self.txt_search.textChanged.connect(self._on_search_changed)
+        self.txt_search.textChanged.connect(self._on_search_text_changed)
         top_layout.addWidget(self.txt_search, stretch=1)
 
         # Bouton Actualiser
@@ -120,17 +123,17 @@ class MainWindow(QMainWindow):
         self.btn_refresh.clicked.connect(self.refresh_odds)
         top_layout.addWidget(self.btn_refresh)
 
-        # Bouton Paramètres (Icône ⚙️)
+        # Bouton Paramètres ⚙️
         self.btn_settings = QPushButton("⚙️")
         self.btn_settings.setObjectName("BtnSettings")
         self.btn_settings.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_settings.setToolTip("Paramètres de l'application (police, thème, sources)")
+        self.btn_settings.setToolTip("Paramètres (police, thème, sources)")
         self.btn_settings.clicked.connect(self._open_settings)
         top_layout.addWidget(self.btn_settings)
 
         main_layout.addWidget(topbar)
 
-        # 2. Tableau principal des cotes
+        # 2. Tableau principal natif ultra-rapide
         self.table_widget = OddsTableWidget()
         self.table_widget.match_selected.connect(self._show_match_details)
         main_layout.addWidget(self.table_widget, stretch=1)
@@ -157,11 +160,12 @@ class MainWindow(QMainWindow):
             self.timer.stop()
 
     def refresh_odds(self):
+        # Empêcher tout double lancement
         if self.worker and self.worker.isRunning():
             return
 
         self.btn_refresh.setEnabled(False)
-        self.btn_refresh.setText("⏳ Chargement...")
+        self.btn_refresh.setText("⏳ Analyse...")
         self.status_bar.showMessage(f"Récupération des flux cotes en direct ({self.current_sport.value})...")
 
         self.worker = OddsFetchWorker(sport=self.current_sport, settings=self.settings)
@@ -181,9 +185,9 @@ class MainWindow(QMainWindow):
 
         msg = (
             f"Dernière actualisation à {now_str} • "
-            f"{len(events)} matchs surveillés • "
-            f"{surebets_count} Surebet(s) garanti(s) • "
-            f"{values_count} Décalage(s) important(s)"
+            f"{len(events)} matchs analysés • "
+            f"🔥 {surebets_count} Surebet(s) garanti(s) • "
+            f"💎 {values_count} Décalage(s) important(s)"
         )
         self.status_bar.showMessage(msg)
 
@@ -193,6 +197,10 @@ class MainWindow(QMainWindow):
     def _on_worker_finished(self):
         self.btn_refresh.setEnabled(True)
         self.btn_refresh.setText("🔄 Actualiser")
+
+    def _on_search_text_changed(self, text: str):
+        # Redémarrer le debounce pour fluidité parfaite
+        self.search_timer.start()
 
     def _refresh_table_view(self):
         self.table_widget.load_events(
@@ -206,9 +214,6 @@ class MainWindow(QMainWindow):
     def _on_sport_changed(self, index: int):
         self.current_sport = self.combo_sport.currentData()
         self.refresh_odds()
-
-    def _on_search_changed(self, text: str):
-        self._refresh_table_view()
 
     def _filter_all(self):
         self.filter_live = False
@@ -267,3 +272,12 @@ class MainWindow(QMainWindow):
         self._apply_theme()
         self._update_timer_interval()
         self.refresh_odds()
+
+    def closeEvent(self, event: QCloseEvent):
+        # Arrêt sécurisé du timer et du worker thread
+        self.timer.stop()
+        self.search_timer.stop()
+        if self.worker and self.worker.isRunning():
+            self.worker.terminate()
+            self.worker.wait(500)
+        event.accept()

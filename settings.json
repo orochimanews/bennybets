@@ -1,7 +1,7 @@
 {
   "font_size": 11,
   "theme": "dark",
-  "auto_refresh_interval": 30,
+  "auto_refresh_interval": 60,
   "surebet_min_profit": 0.0,
   "value_bet_threshold": 5.0,
   "enabled_providers": [
