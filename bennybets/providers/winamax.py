@@ -1,10 +1,16 @@
 import os
 import json
 import logging
-import urllib.request
-import ssl
 from typing import List, Optional
 from datetime import datetime
+
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
+import urllib.request
 import httpx
 
 from bennybets.core.models import Event, Sport, Market, Odd
@@ -22,19 +28,14 @@ SPORT_ID_MAP = {
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "cache")
 
 class WinamaxProvider(BaseProvider):
-    """Fournisseur de cotes en temps réel pour Winamax France avec cache de résilience"""
+    """Fournisseur de cotes en temps réel pour Winamax France avec bypass TLS et cache résilient"""
 
-    def __init__(self, timeout_seconds: float = 10.0):
+    def __init__(self, timeout_seconds: float = 12.0):
         self.timeout = timeout_seconds
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
         }
         os.makedirs(CACHE_DIR, exist_ok=True)
         self.cache_file = os.path.join(CACHE_DIR, "winamax_cache.json")
@@ -49,23 +50,36 @@ class WinamaxProvider(BaseProvider):
         events: List[Event] = []
         html = None
 
-        try:
-            ctx = ssl.create_default_context()
-            ctx.set_ciphers('DEFAULT@SECLEVEL=1')
-            req = urllib.request.Request(url, headers=self.headers)
-            with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as resp:
-                if resp.status == 200:
-                    html = resp.read().decode("utf-8", errors="ignore")
-        except Exception as e:
-            logger.debug(f"[Winamax] urllib: {e}")
+        # Méthode 1 (Ultra-fiable) : curl_cffi impersonate chrome120
+        if HAS_CURL_CFFI:
+            try:
+                r = cffi_requests.get(url, impersonate="chrome120", timeout=self.timeout)
+                if r.status_code == 200:
+                    html = r.text
+            except Exception as e:
+                logger.debug(f"[Winamax] curl_cffi err: {e}")
+
+        # Méthode 2 : urllib fallback
+        if not html:
+            try:
+                req = urllib.request.Request(url, headers=self.headers)
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    if resp.status == 200:
+                        html = resp.read().decode("utf-8", errors="ignore")
+            except Exception as e:
+                logger.debug(f"[Winamax] urllib err: {e}")
+
+        # Méthode 3 : httpx fallback
+        if not html:
             try:
                 with httpx.Client(timeout=self.timeout, follow_redirects=True, headers=self.headers) as client:
                     resp = client.get(url)
                     if resp.status_code == 200:
                         html = resp.text
-            except Exception as he:
-                logger.debug(f"[Winamax] httpx: {he}")
+            except Exception as e:
+                logger.debug(f"[Winamax] httpx err: {e}")
 
+        # Parsing
         if html:
             idx = html.find("var PRELOADED_STATE = ")
             if idx != -1:
@@ -75,23 +89,24 @@ class WinamaxProvider(BaseProvider):
                     data, _ = decoder.raw_decode(raw)
                     events = self._parse_state(data, sport)
                     if events:
-                        self._save_to_cache(data, sport)
+                        self._save_to_cache(data)
                         return events
                 except Exception as pe:
                     logger.debug(f"[Winamax] Erreur parsing: {pe}")
 
+        # Fallback Cache
         if not events and os.path.exists(self.cache_file):
             try:
                 with open(self.cache_file, "r", encoding="utf-8") as f:
                     cached_data = json.load(f)
                     events = self._parse_state(cached_data, sport)
-                    logger.info(f"[Winamax] {len(events)} matchs charges depuis le cache de resilience.")
-            except Exception as ce:
-                logger.debug(f"[Winamax] Erreur lecture cache: {ce}")
+                    logger.info(f"[Winamax] {len(events)} matchs charges depuis le cache.")
+            except Exception:
+                pass
 
         return events
 
-    def _save_to_cache(self, data: dict, sport: Sport):
+    def _save_to_cache(self, data: dict):
         try:
             with open(self.cache_file, "w", encoding="utf-8") as f:
                 json.dump(data, f)
@@ -120,7 +135,6 @@ class WinamaxProvider(BaseProvider):
 
                 status = m.get("status", "PREMATCH")
                 is_live = (status == "LIVE")
-                
                 tourn_id = str(m.get("tournamentId", ""))
                 competition = tournaments.get(tourn_id, {}).get("tournamentName", "")
 
@@ -131,10 +145,10 @@ class WinamaxProvider(BaseProvider):
                 if is_live:
                     live_data = m.get("live", {})
                     if live_data:
-                        home_score = live_data.get("scoreHomeTeam")
-                        away_score = live_data.get("scoreAwayTeam")
-                        if home_score is not None and away_score is not None:
-                            score_str = f"{home_score} - {away_score}"
+                        h_s = live_data.get("scoreHomeTeam")
+                        a_s = live_data.get("scoreAwayTeam")
+                        if h_s is not None and a_s is not None:
+                            score_str = f"{h_s} - {a_s}"
 
                 main_bet_id = str(m.get("mainBetId", ""))
                 bet = bets.get(main_bet_id)
@@ -173,24 +187,21 @@ class WinamaxProvider(BaseProvider):
                         url=match_url
                     )
 
-                    if len(market_outcomes) >= 2:
-                        market_name = "1N2" if "N" in market_outcomes else "12"
-                        event = Event(
-                            id=f"winamax_{match_id}",
-                            sport=sport,
-                            home_team=home_team,
-                            away_team=away_team,
-                            start_time=start_time,
-                            is_live=is_live,
-                            bookmaker=self.name,
-                            markets={
-                                market_name: Market(name=market_name, outcomes=market_outcomes)
-                            },
-                            url=match_url,
-                            competition=competition,
-                            score=score_str
-                        )
-                        events.append(event)
+                if len(market_outcomes) >= 2:
+                    market_name = "1N2" if "N" in market_outcomes else "12"
+                    events.append(Event(
+                        id=f"winamax_{match_id}",
+                        sport=sport,
+                        home_team=home_team,
+                        away_team=away_team,
+                        start_time=start_time,
+                        is_live=is_live,
+                        bookmaker=self.name,
+                        markets={market_name: Market(name=market_name, outcomes=market_outcomes)},
+                        url=match_url,
+                        competition=competition,
+                        score=score_str
+                    ))
             except Exception:
                 continue
 

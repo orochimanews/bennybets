@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -7,6 +7,7 @@ from bennybets.core.settings import AppSettings
 from bennybets.providers.base import BaseProvider
 from bennybets.providers.winamax import WinamaxProvider
 from bennybets.providers.betclic import BetclicProvider
+from bennybets.providers.unibet import UnibetProvider
 from bennybets.providers.custom_url import CustomJsonProvider
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,10 @@ class ProviderRegistry:
     def _init_default_providers(self):
         w = WinamaxProvider()
         b = BetclicProvider()
+        u = UnibetProvider()
         self.providers[w.name] = w
         self.providers[b.name] = b
+        self.providers[u.name] = u
 
     def _load_custom_providers(self):
         for src in self.settings.custom_sources:
@@ -44,7 +47,6 @@ class ProviderRegistry:
         self.providers[provider.name] = provider
 
     def fetch_all(self, sport: Sport = Sport.FOOTBALL) -> List[Event]:
-        """Récupère les événements en parallèle depuis tous les providers actifs"""
         all_events: List[Event] = []
         enabled = self.settings.enabled_providers
 

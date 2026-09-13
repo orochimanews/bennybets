@@ -1,4 +1,4 @@
-﻿from bennybets.core.models import Sport
+from bennybets.core.models import Sport
 from bennybets.providers.custom_url import CustomJsonProvider
 from bennybets.providers.registry import ProviderRegistry
 import json
@@ -38,3 +38,4 @@ def test_registry_initialization():
     registry = ProviderRegistry()
     assert "Winamax" in registry.providers
     assert "Betclic" in registry.providers
+    assert "Unibet" in registry.providers

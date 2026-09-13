@@ -1,4 +1,4 @@
-﻿from typing import List, Optional
+from typing import List, Optional
 from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QWidget,
     QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QAbstractItemView
@@ -9,7 +9,7 @@ from PyQt6.QtGui import QDesktopServices, QColor, QFont, QCursor
 from bennybets.core.models import AggregatedEvent, OpportunityType
 
 class OddsTableWidget(QTableWidget):
-    """Tableau compact et interactif affichant la comparaison des cotes en direct"""
+    """Tableau compact et interactif affichant la comparaison des cotes en direct (Winamax, Betclic, Unibet)"""
 
     match_selected = pyqtSignal(AggregatedEvent)
 
@@ -17,9 +17,10 @@ class OddsTableWidget(QTableWidget):
     COL_MATCH = 1
     COL_WINAMAX = 2
     COL_BETCLIC = 3
-    COL_BEST = 4
-    COL_OPPORTUNITY = 5
-    COL_ACTIONS = 6
+    COL_UNIBET = 4
+    COL_BEST = 5
+    COL_OPPORTUNITY = 6
+    COL_ACTIONS = 7
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -32,6 +33,7 @@ class OddsTableWidget(QTableWidget):
             "Événement / Compétition",
             "Winamax (1 | N | 2)",
             "Betclic (1 | N | 2)",
+            "Unibet (1 | N | 2)",
             "Meilleures Cotes",
             "Opportunité",
             "Action"
@@ -39,7 +41,6 @@ class OddsTableWidget(QTableWidget):
         self.setColumnCount(len(headers))
         self.setHorizontalHeaderLabels(headers)
         
-        # Configuration compacte & réactive
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -52,6 +53,7 @@ class OddsTableWidget(QTableWidget):
         header.setSectionResizeMode(self.COL_MATCH, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(self.COL_WINAMAX, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(self.COL_BETCLIC, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self.COL_UNIBET, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(self.COL_BEST, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(self.COL_OPPORTUNITY, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(self.COL_ACTIONS, QHeaderView.ResizeMode.ResizeToContents)
@@ -81,25 +83,13 @@ class OddsTableWidget(QTableWidget):
         self.setRowCount(len(filtered))
 
         for row, ev in enumerate(filtered):
-            # 1. Statut & Date
             self._set_status_cell(row, ev)
-
-            # 2. Match & Compétition
             self._set_match_cell(row, ev)
-
-            # 3. Winamax
             self._set_bookmaker_cell(row, self.COL_WINAMAX, ev, "Winamax")
-
-            # 4. Betclic
             self._set_bookmaker_cell(row, self.COL_BETCLIC, ev, "Betclic")
-
-            # 5. Meilleures Cotes
+            self._set_bookmaker_cell(row, self.COL_UNIBET, ev, "Unibet")
             self._set_best_odds_cell(row, ev)
-
-            # 6. Opportunités
             self._set_opportunity_cell(row, ev)
-
-            # 7. Bouton Action
             self._set_action_cell(row, ev)
 
     def _set_status_cell(self, row: int, ev: AggregatedEvent):
@@ -171,8 +161,8 @@ class OddsTableWidget(QTableWidget):
             btn_odd.setToolTip(f"Ouvrir {bookmaker_name} pour parier sur {out} à cote {val_str}")
             btn_odd.setStyleSheet("""
                 QPushButton {
-                    padding: 2px 6px;
-                    font-size: 11px;
+                    padding: 2px 5px;
+                    font-size: 10px;
                     border: 1px solid #374151;
                     border-radius: 3px;
                 }
@@ -207,14 +197,13 @@ class OddsTableWidget(QTableWidget):
             odd_obj = best_mkt.get(out)
             if odd_obj:
                 val_str = f"{odd_obj.value:.2f}"
-                bk_short = odd_obj.bookmaker[:3]
                 btn_best = QPushButton(f"{out}: {val_str}")
                 btn_best.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
                 btn_best.setToolTip(f"Meilleure cote : {odd_obj.value:.2f} chez {odd_obj.bookmaker}")
                 btn_best.setStyleSheet("""
                     QPushButton {
-                        padding: 2px 6px;
-                        font-size: 11px;
+                        padding: 2px 5px;
+                        font-size: 10px;
                         font-weight: bold;
                         color: #f59e0b;
                         border: 1px solid #d97706;
@@ -244,14 +233,14 @@ class OddsTableWidget(QTableWidget):
             max_profit = max(op.profit_margin for op in surebets) if surebets else 0.0
             lbl = QLabel(f"🔥 SUREBET +{max_profit:.1f}%")
             lbl.setStyleSheet("background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; border-radius: 4px; padding: 3px 6px; font-weight: bold; font-size: 10px;")
-            lbl.setToolTip(f"Arbitrage garanti avec {max_profit:.2f}% de ROI !")
+            lbl.setToolTip(f"Arbitrage garanti avec +{max_profit:.2f}% de ROI !")
             layout.addWidget(lbl)
         elif ev.has_value_bet:
             val_bets = [op for op in ev.opportunities if op.op_type == OpportunityType.VALUE_BET]
             max_spread = max(op.profit_margin for op in val_bets) if val_bets else 0.0
-            lbl = QLabel(f"💎 VALUE +{max_spread:.0f}%")
+            lbl = QLabel(f"💎 DÉCALAGE +{max_spread:.0f}%")
             lbl.setStyleSheet("background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; border-radius: 4px; padding: 3px 6px; font-weight: bold; font-size: 10px;")
-            lbl.setToolTip(f"Cote anormalement haute (+{max_spread:.1f}% par rapport à la médiane marché)")
+            lbl.setToolTip(f"Cote décalée (+{max_spread:.1f}% par rapport à la médiane)")
             layout.addWidget(lbl)
         else:
             lbl = QLabel("—")
@@ -269,8 +258,8 @@ class OddsTableWidget(QTableWidget):
         btn_calc.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn_calc.setStyleSheet("""
             QPushButton {
-                padding: 4px 8px;
-                font-size: 11px;
+                padding: 3px 6px;
+                font-size: 10px;
                 border: 1px solid #4b5563;
                 border-radius: 3px;
             }

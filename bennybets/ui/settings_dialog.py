@@ -132,6 +132,10 @@ class SettingsDialog(QDialog):
         self.chk_betclic.setChecked("Betclic" in self.settings.enabled_providers)
         sources_layout.addWidget(self.chk_betclic)
 
+        self.chk_unibet = QCheckBox("Unibet (Flux réel cotes & live)")
+        self.chk_unibet.setChecked("Unibet" in self.settings.enabled_providers)
+        sources_layout.addWidget(self.chk_unibet)
+
         # Sources personnalisées
         lbl_custom = QLabel("<b>Sources d'adresses et événements personnalisés :</b>")
         sources_layout.addWidget(lbl_custom)
@@ -221,6 +225,8 @@ class SettingsDialog(QDialog):
             enabled_bk.append("Winamax")
         if self.chk_betclic.isChecked():
             enabled_bk.append("Betclic")
+        if self.chk_unibet.isChecked():
+            enabled_bk.append("Unibet")
         self.settings.enabled_providers = enabled_bk
 
         # Sauvegarder sur disque

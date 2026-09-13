@@ -20,7 +20,7 @@ class AppSettings:
     auto_refresh_interval: int = 30              # Secondes (10, 30, 60, 0 = manuel)
     surebet_min_profit: float = 0.0              # Min ROI pour alerte Surebet (%)
     value_bet_threshold: float = 8.0             # Seuil décalage (%) pour anomalie
-    enabled_providers: List[str] = field(default_factory=lambda: ['Winamax', 'Betclic'])
+    enabled_providers: List[str] = field(default_factory=lambda: ['Winamax', 'Betclic', 'Unibet'])
     custom_sources: List[Dict[str, Any]] = field(default_factory=list)
     default_total_stake: float = 100.0           # Mise par défaut pour calculateur
     show_only_surebets: bool = False

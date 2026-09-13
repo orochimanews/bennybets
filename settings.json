@@ -3,10 +3,11 @@
   "theme": "dark",
   "auto_refresh_interval": 30,
   "surebet_min_profit": 0.0,
-  "value_bet_threshold": 8.0,
+  "value_bet_threshold": 5.0,
   "enabled_providers": [
     "Winamax",
-    "Betclic"
+    "Betclic",
+    "Unibet"
   ],
   "custom_sources": [],
   "default_total_stake": 100.0,
