@@ -2,6 +2,9 @@
 
 **BennyBets** est une application desktop Windows moderne et autonome permettant de surveiller et comparer en temps réel les cotes des bookmakers (notamment les principaux opérateurs français tels que **Winamax** et **Betclic**), d'identifier instantanément les meilleures cotes, et de détecter automatiquement les opportunités de profit garanti (**Surebets / Arbitrage**) et les anomalies de marché (**Value bets / Décalages de cotes**).
 
+Pour télécharger, cliquer en haut à droite sur Code -> Download zip. 
+L'application est dans le dossier dist. 
+
 ---
 
 ## 🌟 Fonctionnalités Clés
