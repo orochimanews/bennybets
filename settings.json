@@ -1,0 +1,17 @@
+{
+  "font_size": 11,
+  "theme": "dark",
+  "auto_refresh_interval": 30,
+  "surebet_min_profit": 0.0,
+  "value_bet_threshold": 8.0,
+  "enabled_providers": [
+    "Winamax",
+    "Betclic"
+  ],
+  "custom_sources": [],
+  "default_total_stake": 100.0,
+  "show_only_surebets": false,
+  "show_only_live": false,
+  "search_filter": "",
+  "sound_alert_on_surebet": false
+}

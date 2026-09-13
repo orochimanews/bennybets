@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# User settings cache if needed
+# (leave settings.json tracked or untracked as template)
+
+# Explicitly do NOT ignore dist directory as requested by user
+!dist/
+!dist/**
